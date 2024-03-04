@@ -8,9 +8,10 @@ import time
 from queue import Queue
 
 from lxml import etree
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
-from PyQt4.QtSvg import *
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer, QEvent
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import * 
+from PyQt6.QtSvg import *
 
 
 def cmp_to_key(mycmp):
@@ -101,8 +102,8 @@ class SonyCamera(QObject):
 
     def startCamera(self):
         print("starting camera")
-        QApplication.postEvent(self, QEvent(self.initCameraConnectionEvent), Qt.LowEventPriority - 1)
-
+        QApplication.postEvent(self, QEvent(self.initCameraConnectionEvent), Qt.EventPriority.LowEventPriority.value)
+        
     def _connectToCamera(self):
         self.SSDPInfo = {}
         self.liveViewActive = False

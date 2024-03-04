@@ -10,9 +10,10 @@ import operator
 
 from sonycamera import SonyCamera
 
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
-from PyQt4.QtSvg import *
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QLine
+from PyQt6.QtGui import QPainter, QPixmap
+from PyQt6.QtWidgets import QWidget, QApplication, QFrame, QProgressBar, QComboBox, QPushButton, QLabel, QGridLayout, QVBoxLayout, QStyleOption
+from PyQt6.QtSvg import *
 
 from PIL import Image
 from functools import reduce
@@ -21,17 +22,20 @@ from functools import reduce
 class LiveView(QFrame):
     INIT_WIDTH = 600.0
     INIT_HEIGHT = 400.0
-
+    clicked = pyqtSignal(int, int)
+    
     def __init__(self, parent=None):
         super(LiveView, self).__init__(parent)
 
         self.pixmap = QPixmap()
         self.image = None
         #self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setFrameStyle(QFrame.Panel | QFrame.Raised)
+        self.setFrameStyle(QFrame.Shape.Panel.value | QFrame.Shadow.Raised.value)
+        #self.setFrameStyle(QFrame.Panel | QFrame.Raised)
         self.setLineWidth(2)
         self.setToolTip("Click image to focus camera at mouse location")
-        self.setMinimumSize(LiveView.INIT_WIDTH, LiveView.INIT_HEIGHT)
+        #self.setMinimumSize(LiveView.INIT_WIDTH, LiveView.INIT_HEIGHT)
+        self.setMinimumSize(int(LiveView.INIT_WIDTH), int(LiveView.INIT_HEIGHT))
         self.enabled = True
         self.previousImage = None
         self.frameCount = 0
@@ -98,8 +102,8 @@ class LiveView(QFrame):
         if event.button() == Qt.LeftButton:
             x = (event.x() * 100.0) / self.width()
             y = (event.y() * 100.0) / self.height()
-            self.emit(SIGNAL('clicked(int, int)'), x, y)
-
+            #self.emit(SIGNAL('clicked(int, int)'), x, y)
+            self.clicked.emit(event.position().x(), event.position().y())
 
 
 class MyMainWindow(QWidget):
@@ -108,7 +112,7 @@ class MyMainWindow(QWidget):
 
         # Timer used to update progress bar when foto is downloaded from camera.
         self.timer = QTimer()
-        self.connect(self.timer, SIGNAL("timeout()"), self.updateProgressBar)
+        self.timer.timeout.connect(self.updateProgressBar)
 
         # Create camera handler and run it in a separate thread.
         self.cameraThread = QThread()
@@ -131,66 +135,77 @@ class MyMainWindow(QWidget):
 
     def createGuiWidgets(self):
         self.liveView = LiveView(self)
-        self.connect(self.liveView, SIGNAL('clicked(int, int)'), self.setFocus)
-
+        #self.connect(self.liveView, SIGNAL('clicked(int, int)'), self.setFocus)
+        self.liveView.clicked.connect(self.setFocus)
         x = self.liveView.width() / 2.0 - 200
         y = self.liveView.height() / 2.0
         self.imageUploadProgressBar = QProgressBar(self.liveView)
-        self.imageUploadProgressBar.setOrientation(Qt.Horizontal)
+        self.imageUploadProgressBar.setOrientation(Qt.Orientation.Horizontal)
         self.imageUploadProgressBar.setMinimum(0)
         self.imageUploadProgressBar.setMaximum(100)
         self.imageUploadProgressBar.setValue(0)
-        self.imageUploadProgressBar.move(x, y)
+        self.imageUploadProgressBar.move(int(x), int(y))
         self.imageUploadProgressBar.setFixedSize(400, 20)
         self.imageUploadProgressBar.hide()
 
         # Still size combo box.
         self.stillSizeCombo = QComboBox()
-        self.stillSizeCombo.currentIndexChanged['QString'].connect(self.changeStillSize)
+        self.stillSizeCombo.currentIndexChanged.connect(self.changeStillSize)
+        #self.stillSizeCombo.currentIndexChanged['QString'].connect(self.changeStillSize)
         self.stillSizeCombo.setToolTip("Select still photo size")
 
         # Shoot mode combo box.
         self.shootModeCombo = QComboBox()
-        self.shootModeCombo.currentIndexChanged['QString'].connect(self.changeShootMode)
+        #self.shootModeCombo.currentIndexChanged['QString'].connect(self.changeShootMode)
+        self.shootModeCombo.currentIndexChanged.connect(self.changeShootMode)
         self.shootModeCombo.setToolTip("Select shoot mode")
 
         # --------------------------------Start Movie Rec button----------------------------
         self.startRecButton = QPushButton("Start Rec", self)
         self.startRecButton.setToolTip("Press to start video recording.")
-        self.connect(self.startRecButton, SIGNAL("clicked()"), self.startVideo)
+        #self.connect(self.startRecButton, SIGNAL("clicked()"), self.startVideo)
+        self.startRecButton.clicked.connect(self.startVideo)
 
         # --------------------------------Stop Movie Rec button-----------------------------
         self.stopRecButton = QPushButton("Stop Rec", self)
         self.stopRecButton.setToolTip("Press to stop video recording.")
-        self.connect(self.stopRecButton, SIGNAL("clicked()"), self.stopVideo)
+        #self.connect(self.stopRecButton, SIGNAL("clicked()"), self.stopVideo)
+        self.stopRecButton.clicked.connect(self.stopVideo)
 
         # --------------------------------Snap photo button---------------------------------
         self.snapButton = QPushButton("Take Photo", self)
         self.snapButton.setToolTip("Press to take a photo. Image will automagically be uploaded to computer.")
-        self.connect(self.snapButton, SIGNAL("clicked()"), self.takePhoto)
+        #self.connect(self.snapButton, SIGNAL("clicked()"), self.takePhoto)
+        self.snapButton.clicked.connect(self.takePhoto)
 
         # --------------------------------Zoom buttons---------------------------------
         self.zoomOutButton = QPushButton("Zoom Out")
         self.zoomOutButton.setToolTip("Press and hold for continuous zoom out")
-        self.connect(self.zoomOutButton, SIGNAL("pressed()"), self.zoomOutStart)
-        self.connect(self.zoomOutButton, SIGNAL("released()"), self.zoomOutStop)
+        #self.connect(self.zoomOutButton, SIGNAL("pressed()"), self.zoomOutStart)
+        #self.connect(self.zoomOutButton, SIGNAL("released()"), self.zoomOutStop)
+        self.zoomOutButton.pressed.connect(self.zoomOutStart)
+        self.zoomOutButton.released.connect(self.zoomOutStop)
 
         self.zoomInButton = QPushButton("Zoom In")
         self.zoomInButton.setToolTip("Press and hold for continuous zoom in")
-        self.connect(self.zoomInButton, SIGNAL("pressed()"), self.zoomInStart)
-        self.connect(self.zoomInButton, SIGNAL("released()"), self.zoomInStop)
+        #self.connect(self.zoomInButton, SIGNAL("pressed()"), self.zoomInStart)
+        #self.connect(self.zoomInButton, SIGNAL("released()"), self.zoomInStop)
+        self.zoomOutButton.pressed.connect(self.zoomInStart)
+        self.zoomOutButton.released.connect(self.zoomInStop)
 
         # --------------------------------Show grid button---------------------------------
         self.gridButton = QPushButton("Show Grid", self)
         self.gridButton.setCheckable(True)
         self.gridButton.setChecked(True)
         self.gridButton.setToolTip("Press to display rule of 1/3 grid.")
-        self.connect(self.gridButton, SIGNAL("clicked()"), self.enableGrid)
+        #self.connect(self.gridButton, SIGNAL("clicked()"), self.enableGrid)
+        self.gridButton.clicked.connect(self.enableGrid)
 
         # --------------------------------Connect to camera button---------------------------------
         self.connectButton = QPushButton("Connect to Camera", self)
         self.connectButton.setToolTip("Press to connect to camera.")
-        self.connect(self.connectButton, SIGNAL("clicked()"), self.camera.startCamera)
+        #self.connect(self.connectButton, SIGNAL("clicked()"), self.camera.startCamera)
+        self.connectButton.clicked.connect(self.camera.startCamera)
 
         # ---------------------------------Warning message if camera is not connected-----------------
         self.connectMessage = QLabel("Camera not found. Check that camera is connected via WIFI and then click the connect button below.")
@@ -353,9 +368,10 @@ class MyMainWindow(QWidget):
 def main(args):
     app=QApplication(args)
     win = MyMainWindow(app)
-    app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
+    app.lastWindowClosed.connect(app.quit)
+    #app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
     win.show()
-    app.exec_()
+    app.exec()
 
 
 
